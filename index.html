@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+    <title></title>
+    <style type="text/css">
+* {
+  margin: 0;
+  padding: 0;
+}
+    </style>
+  </head>
+  <body>
+    <ul>
+      <li>X: <span id="accel-x"></span></li>
+      <li>Y: <span id="accel-y"></span></li>
+      <li>Left: <span id="motor-left"></span></li>
+      <li>Right: <span id="motor-right"></span></li>
+    </ul>
+    <div id="joystick" style="width: 100vw; height: 50vw; border: 1px solid #000;">
+    </div>
+    <script src="../virtualjoystick.js"></script>
+    <script>
+
+const MIN_RANGE = -255;
+const MAX_RANGE = 255;
+const MIN_RANGE_ACCEL = -7;
+const MAX_RANGE_ACCEL = 7;
+const MIN_RANGE_STICK = -100;
+const MAX_RANGE_STICK = 100;
+
+const $ = function($) {
+  return document.getElementById($);
+}
+
+function cap(value, min, max) {
+  return (value < min ? min : (value > max ? max : value));
+}
+
+function scale(value, fromLow, fromHigh, toLow, toHigh) {
+    return cap((value - fromLow) * (toHigh - toLow) /
+          (fromHigh - fromLow) + toLow, toLow, toHigh);
+};
+
+function scaleStick(values) {
+  return values.map(function(value) {
+    return scale(value, MIN_RANGE_STICK, MAX_RANGE_STICK, MIN_RANGE, MAX_RANGE);
+  });
+}
+
+function scaleAccel(values) {
+  return values.map(function(value) {
+    return scale(value, MIN_RANGE_ACCEL, MAX_RANGE_ACCEL, MIN_RANGE, MAX_RANGE);
+  });
+}
+
+function setControl(x, y) {
+  //TODO send mqtt signal here
+    $('accel-x').innerHTML = ~~x;
+    $('accel-y').innerHTML = ~~y;
+   
+    var v = (100-Math.abs(x)) * (y/100) + y;
+    var w = (100-Math.abs(y)) * (x/100) + x;
+
+    var r = (v+w)/2;
+    var l = (v-w)/2;
+    $('motor-right').innerHTML = r;
+    $('motor-left').innerHTML = l;
+}
+
+const stickStart = function () {
+  setControl.apply(this, scaleStick([joystick.deltaX(), (-1) * joystick.deltaY()]));
+}
+
+const joystick = new VirtualJoystick({
+  container: $('joystick'),
+  mouseSupport: true,
+  limitStickTravel: true,
+  limitStickRadius: '100px'
+});
+
+$('joystick').addEventListener('touchmove', stickStart);
+$('joystick').addEventListener('mousemove', stickStart);
+
+if (window.DeviceMotionEvent) {
+  window.addEventListener('devicemotion', function () {
+    const scaledPosition = scaleAccel([event.accelerationIncludingGravity.x, event.accelerationIncludingGravity.y]);
+    if (joystick.deltaX() === 0 && joystick.deltaY() === 0) {
+      setControl.apply(this, scaledPosition);
+    }
+  }, true);
+}
+
+    </script>
+  </body>
+</html>
+
+
