@@ -20,7 +20,9 @@
     </ul>
     <div id="joystick" style="width: 100vw; height: 50vw; border: 1px solid #000;">
     </div>
-    <script src="../virtualjoystick.js"></script>
+    <script src="virtualjoystick.js"></script>
+    <script src="browserMqtt.js"></script>
+    <script src="lodash.min.js"></script>
     <script>
 
 const MIN_RANGE = -255;
@@ -29,6 +31,8 @@ const MIN_RANGE_ACCEL = -7;
 const MAX_RANGE_ACCEL = 7;
 const MIN_RANGE_STICK = -100;
 const MAX_RANGE_STICK = 100;
+
+var client = mqtt.connect('ws://192.168.2.200:3000');
 
 const $ = function($) {
   return document.getElementById($);
@@ -56,7 +60,6 @@ function scaleAccel(values) {
 }
 
 function setControl(x, y) {
-  //TODO send mqtt signal here
     $('accel-x').innerHTML = ~~x;
     $('accel-y').innerHTML = ~~y;
    
@@ -67,6 +70,11 @@ function setControl(x, y) {
     var l = (v-w)/2;
     $('motor-right').innerHTML = r;
     $('motor-left').innerHTML = l;
+
+    client.publish("move/", JSON.stringify({
+      left: l,
+      right: r
+    }));
 }
 
 const stickStart = function () {
@@ -80,16 +88,16 @@ const joystick = new VirtualJoystick({
   limitStickRadius: '100px'
 });
 
-$('joystick').addEventListener('touchmove', stickStart);
-$('joystick').addEventListener('mousemove', stickStart);
+$('joystick').addEventListener('touchmove', _.throttle(stickStart,500));
+$('joystick').addEventListener('mousemove', _.throttle(stickStart,500));
 
 if (window.DeviceMotionEvent) {
-  window.addEventListener('devicemotion', function () {
+  window.addEventListener('devicemotion', _.throttle(function () {
     const scaledPosition = scaleAccel([event.accelerationIncludingGravity.x, event.accelerationIncludingGravity.y]);
     if (joystick.deltaX() === 0 && joystick.deltaY() === 0) {
       setControl.apply(this, scaledPosition);
     }
-  }, true);
+  }, 500), true);
 }
 
     </script>
